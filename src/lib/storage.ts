@@ -54,8 +54,8 @@ export async function deleteFile(filename: string): Promise<void> {
 
     try {
         await fs.unlink(filePath)
-    } catch (error: any) {
-        if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
             // File doesn't exist, which is fine for delete operation
             return
         }

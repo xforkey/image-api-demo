@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react'
 import { useOptimizedSearch } from '@/hooks/useOptimizedSearch'
 import { useDeleteImage, type ImageMetadata } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
     AlertDialog,
     AlertDialogAction,
@@ -63,27 +62,33 @@ export default function ImageList({ searchQuery }: ImageListProps) {
     }
 
     return (
-        <div>
+        <div aria-label="Image gallery">
             <div className="flex items-center justify-between mb-6">
-                <Badge variant="secondary" className="text-sm">
+                <Badge variant="secondary" className="text-sm" aria-live="polite">
                     {data?.total || 0} images
                 </Badge>
                 <div className="flex items-center gap-2">
                     {isSearching && (
-                        <div className="text-sm text-muted-foreground">Searching...</div>
+                        <div className="text-sm text-muted-foreground" aria-live="polite">
+                            Searching...
+                        </div>
                     )}
-
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div
+                className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                role="grid"
+                aria-label="Image gallery grid"
+            >
                 {data?.images?.map((image: ImageMetadata, index: number) => (
-                    <ImageCard
-                        key={image.id}
-                        image={image}
-                        onDelete={handleDeleteClick}
-                        priority={index < 4} // Preload first 4 images
-                    />
+                    <div key={image.id} role="gridcell">
+                        <ImageCard
+                            image={image}
+                            onDelete={handleDeleteClick}
+                            priority={index < 4} // Preload first 4 images
+                        />
+                    </div>
                 ))}
             </div>
 

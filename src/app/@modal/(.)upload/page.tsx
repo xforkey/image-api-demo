@@ -2,14 +2,15 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import NextImage from 'next/image'
 import { useUploadImage } from '@/lib/api'
-import { Dialog, DialogContent, DialogClose, DialogTitle, DialogDescription, DialogHeader } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogHeader } from '@/components/ui/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
-import { Upload, AlertCircle, Images, SquarePlus, X } from 'lucide-react'
+import { Upload, AlertCircle, Images, SquarePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export default function UploadModal() {
@@ -166,6 +167,16 @@ export default function UploadModal() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            fileInputRef.current?.click()
+                        }
+                    }}
+                    tabIndex={0}
+                    role="button"
+                    aria-label="Upload image file. Click or drag and drop an image here."
+                    aria-describedby="upload-constraints"
                 >
                     <input
                         ref={fileInputRef}
@@ -179,12 +190,14 @@ export default function UploadModal() {
                     {selectedFile ? (
                         <div className="space-y-4 w-full">
                             {/* Image Preview */}
-                            <div className="relative w-full max-w-xs mx-auto">
+                            <div className="relative w-full max-w-xs mx-auto h-48">
                                 {previewUrl && (
-                                    <img
+                                    <NextImage
                                         src={previewUrl}
                                         alt="Preview"
-                                        className="w-full h-48 object-cover rounded-lg border"
+                                        fill
+                                        className="object-cover rounded-lg border"
+                                        unoptimized // Since it's a blob URL
                                     />
                                 )}
                             </div>
@@ -230,7 +243,7 @@ export default function UploadModal() {
                                     </Button>
 
                                     {/* Upload Constraints */}
-                                    <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                                    <div id="upload-constraints" className="mt-3 flex flex-wrap gap-2 justify-center">
                                         <Badge variant="outline" className="text-xs">
                                             Max 5MB
                                         </Badge>
@@ -250,14 +263,21 @@ export default function UploadModal() {
                 {/* Custom Name Input */}
                 {selectedFile && (
                     <div className="mt-4 space-y-2">
-                        <label className="text-sm font-medium">Custom Name (Optional)</label>
+                        <label htmlFor="custom-name" className="text-sm font-medium">
+                            Custom Name (Optional)
+                        </label>
                         <Input
+                            id="custom-name"
                             type="text"
                             value={customName}
                             onChange={(e) => setCustomName(e.target.value)}
                             placeholder="Enter custom name..."
                             disabled={isUploading}
+                            aria-describedby="custom-name-help"
                         />
+                        <p id="custom-name-help" className="text-xs text-muted-foreground">
+                            Leave empty to use the original filename
+                        </p>
                     </div>
                 )}
 

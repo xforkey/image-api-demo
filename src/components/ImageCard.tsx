@@ -4,7 +4,6 @@ import Image from 'next/image'
 import { useState, useRef, useEffect, memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { ImageMetadata } from '@/lib/api'
 
 interface ImageCardProps {
@@ -31,7 +30,16 @@ function ImageCard({ image, onDelete, priority = false }: ImageCardProps) {
     return (
         <div
             ref={imgRef}
-            className="relative aspect-square bg-muted overflow-hidden rounded-lg group cursor-pointer"
+            className="relative aspect-square bg-muted overflow-hidden rounded-lg group cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+            tabIndex={0}
+            role="img"
+            aria-label={`Image: ${image.name}`}
+            onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    // Could trigger a view action here if needed
+                }
+            }}
         >
             {(isInView || priority) && (
                 <Image
@@ -65,8 +73,9 @@ function ImageCard({ image, onDelete, priority = false }: ImageCardProps) {
                             size="icon"
                             onClick={e => { e.stopPropagation(); onDelete(image.id) }}
                             className="hover:text-white hover:bg-red-600 transition-colors duration-200"
+                            aria-label={`Delete image ${image.name}`}
                         >
-                            <Trash2 />
+                            <Trash2 aria-hidden="true" />
                         </Button>
                     )}
                 </div>

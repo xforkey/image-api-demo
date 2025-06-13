@@ -112,7 +112,7 @@ async function deleteImage(id: string): Promise<void> {
 }
 
 // React Query hooks
-export function useFetchImages(search?: string, limit = 50, options?: any) {
+export function useFetchImages(search?: string, limit = 50, options?: Record<string, unknown>) {
     return useQuery({
         queryKey: ['images', search || 'latest', limit],
         queryFn: () => fetchImages(search, limit),
