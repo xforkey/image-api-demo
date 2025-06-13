@@ -89,12 +89,24 @@ export async function POST(request: NextRequest) {
             name: name || undefined
         })
 
-        // TODO: Implement image upload
-        return NextResponse.json({
-            message: 'POST /api/v1/images - not implemented yet',
-            file: { name: file.name, type: file.type, size: file.size },
-            data: validatedData
-        })
+        // Save file to storage
+        const { saveFile } = await import('@/lib/storage')
+        const { id, filename } = await saveFile(file)
+
+        // Create metadata record
+        const imageMetadata = {
+            id,
+            filename,
+            name: validatedData.name || file.name || filename
+        }
+
+        // Save to database
+        const { getDb } = await import('@/lib/db')
+        const db = await getDb()
+        db.data.images.push(imageMetadata)
+        await db.write()
+
+        return NextResponse.json(imageMetadata, { status: 201 })
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json(
