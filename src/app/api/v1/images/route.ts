@@ -22,10 +22,25 @@ export async function GET(request: NextRequest) {
             search: searchParams.get('search') || undefined
         })
 
-        // TODO: Implement image listing with search
+        // Get database instance
+        const { getDb } = await import('@/lib/db')
+        const db = await getDb()
+
+        // Get all images
+        let images = db.data.images
+
+        // Apply search filter if provided
+        if (params.search) {
+            const searchTerm = params.search.toLowerCase()
+            images = images.filter(image =>
+                image.name.toLowerCase().includes(searchTerm)
+            )
+        }
+
         return NextResponse.json({
-            message: 'GET /api/v1/images - not implemented yet',
-            params
+            images,
+            total: images.length,
+            search: params.search || null
         })
     } catch (error) {
         if (error instanceof z.ZodError) {
