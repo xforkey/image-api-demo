@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useUploadImage } from '@/lib/api'
-import { Dialog, DialogContent, DialogClose, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogClose, DialogTitle, DialogDescription, DialogHeader } from '@/components/ui/dialog'
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -16,11 +16,11 @@ export default function UploadModal() {
     const router = useRouter()
     const fileInputRef = useRef<HTMLInputElement>(null)
     const [isDragging, setIsDragging] = useState(false)
-    const [isHovering, setIsHovering] = useState(false)
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [customName, setCustomName] = useState('')
     const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null)
+    const [validationError, setValidationError] = useState<string | null>(null)
     const uploadMutation = useUploadImage()
 
     // Cleanup preview URL on unmount
@@ -54,10 +54,39 @@ export default function UploadModal() {
     }, [selectedFile])
 
     const handleFileSelect = (file: File) => {
+        // Clear any previous validation errors
+        setValidationError(null)
+
+        // Debug logging
+        console.log('File selected:', file.name, 'Size:', file.size, 'bytes', (file.size / 1024 / 1024).toFixed(2), 'MB')
+
+        // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file')
+            setValidationError('Please select an image file.')
             return
         }
+
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024 // 5MB
+        console.log('Max size:', maxSize, 'File size:', file.size, 'Over limit:', file.size > maxSize)
+        if (file.size > maxSize) {
+            setValidationError(`File size must be less than 5MB. Current size: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
+            return
+        }
+
+        // Validate specific image formats
+        const allowedTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/svg+xml'
+        ]
+
+        if (!allowedTypes.includes(file.type)) {
+            setValidationError('Unsupported file format. Please use JPEG, JPG, PNG, or SVG.')
+            return
+        }
+
         setSelectedFile(file)
         setCustomName(file.name.replace(/\.[^/.]+$/, '')) // Remove extension
         setDimensions(null) // Reset dimensions
@@ -115,146 +144,165 @@ export default function UploadModal() {
     return (
         <Dialog open onOpenChange={(open) => !open && router.back()}>
             <DialogContent className="sm:max-w-md">
-                <VisuallyHidden>
-                    <DialogTitle>Upload Image</DialogTitle>
-                    <DialogDescription>
-                        Upload an image file to your gallery
-                    </DialogDescription>
-                </VisuallyHidden>
-                <DialogClose asChild>
-                    <button className="absolute top-4 right-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-                        <X className="h-4 w-4" />
-                        <span className="sr-only">Close</span>
-                    </button>
-                </DialogClose>
+                <DialogHeader >
+                    <VisuallyHidden>
+                        <DialogTitle>
+                            Upload Image
+                        </DialogTitle>
+                        <DialogDescription>
+                            Drag and drop an image file here, or click to select one.
+                        </DialogDescription>
+                    </VisuallyHidden>
+                </DialogHeader>
 
-                <div className="w-full p-6">
-                    {/* Dropzone */}
-                    <div
-                        className={cn(
-                            "border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center border-slate-300 hover:border-slate-400 hover:bg-slate-50",
-                            isDragging && "bg-sky-100 border-sky-300",
-                            selectedFile && "border-green-500 bg-green-50"
-                        )}
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onMouseEnter={() => setIsHovering(true)}
-                        onMouseLeave={() => setIsHovering(false)}
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/*"
-                            onChange={handleFileInputChange}
-                            className="hidden"
-                            disabled={isUploading}
-                        />
+                {/* Dropzone */}
+                <div
+                    className={cn(
+                        "border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer min-h-[200px] flex flex-col items-center justify-center border-slate-300 hover:border-slate-400 hover:bg-slate-50",
+                        isDragging && "bg-sky-100 border-sky-300",
+                        selectedFile && "border-green-500 bg-green-50"
+                    )}
+                    onDrop={handleDrop}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileInputChange}
+                        className="hidden"
+                        disabled={isUploading}
+                    />
 
-                        {selectedFile ? (
-                            <div className="space-y-4 w-full">
-                                {/* Image Preview */}
-                                <div className="relative w-full max-w-xs mx-auto">
+                    {selectedFile ? (
+                        <div className="space-y-4 w-full">
+                            {/* Image Preview */}
+                            <div className="relative w-full max-w-xs mx-auto">
+                                {previewUrl && (
                                     <img
-                                        src={previewUrl || ''}
+                                        src={previewUrl}
                                         alt="Preview"
                                         className="w-full h-48 object-cover rounded-lg border"
                                     />
-                                </div>
-
-                                {/* Badges */}
-                                <div className="flex flex-wrap gap-2 justify-center">
-                                    <Badge variant="secondary" className="text-xs">
-                                        {selectedFile.name}
-                                    </Badge>
-                                    <Badge variant="outline" className="text-xs">
-                                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                    </Badge>
-                                    {dimensions && (
-                                        <Badge variant="outline" className="text-xs">
-                                            {dimensions.width} × {dimensions.height}
-                                        </Badge>
-                                    )}
-                                </div>
-                            </div>
-                        ) : (
-                            <div className="flex flex-col items-center justify-center gap-4">
-                                {isDragging ? (
-                                    <SquarePlus className="size-18 m-6 text-sky-400" />
-                                ) : (
-                                    <div className="flex flex-col items-center gap-2">
-                                        <Images className="size-12 text-muted-foreground" />
-
-                                        <span className={cn(
-                                            "font-medium transition-colors",
-                                            isDragging ? "text-white" : "text-slate-700"
-                                        )}>
-                                            Drag an image here or
-                                        </span>
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={(e) => {
-                                                e.stopPropagation()
-                                                fileInputRef.current?.click()
-                                            }}
-                                        >
-                                            upload a file
-                                        </Button>
-                                    </div>
                                 )}
                             </div>
-                        )}
-                    </div>
 
-                    {/* Custom Name Input */}
-                    {selectedFile && (
-                        <div className="mt-4 space-y-2">
-                            <label className="text-sm font-medium">Custom Name (Optional)</label>
-                            <Input
-                                type="text"
-                                value={customName}
-                                onChange={(e) => setCustomName(e.target.value)}
-                                placeholder="Enter custom name..."
-                                disabled={isUploading}
-                            />
+                            {/* Badges */}
+                            <div className="flex flex-wrap gap-2 justify-center">
+                                <Badge variant="secondary" className="text-xs">
+                                    {selectedFile.name}
+                                </Badge>
+                                <Badge variant="outline" className="text-xs">
+                                    {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                </Badge>
+                                {dimensions && (
+                                    <Badge variant="outline" className="text-xs">
+                                        {dimensions.width} × {dimensions.height}
+                                    </Badge>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col items-center justify-center gap-4">
+                            {isDragging ? (
+                                <SquarePlus className="size-18 m-6 text-sky-400" />
+                            ) : (
+                                <div className="flex flex-col items-center gap-2">
+                                    <Images className="size-12 text-muted-foreground" />
+
+                                    <span className={cn(
+                                        "font-medium transition-colors",
+                                        isDragging ? "text-white" : "text-slate-700"
+                                    )}>
+                                        Drag an image here or
+                                    </span>
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={(e) => {
+                                            e.stopPropagation()
+                                            fileInputRef.current?.click()
+                                        }}
+                                    >
+                                        Upload a File
+                                    </Button>
+
+                                    {/* Upload Constraints */}
+                                    <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                                        <Badge variant="outline" className="text-xs">
+                                            Max 5MB
+                                        </Badge>
+                                        <Badge variant="outline" className="text-xs">
+                                            JPEG, JPG, PNG, SVG
+                                        </Badge>
+                                        <Badge variant="outline" className="text-xs">
+                                            Images only
+                                        </Badge>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
-
-                    {/* Upload Button */}
-                    {selectedFile && (
-                        <Button
-                            onClick={handleUpload}
-                            className="w-full mt-4"
-                            disabled={isUploading}
-                        >
-                            {isUploading ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
-                                    Uploading...
-                                </>
-                            ) : (
-                                <>
-                                    <Upload className="h-4 w-4 mr-2" />
-                                    Upload Image
-                                </>
-                            )}
-                        </Button>
-                    )}
-
-                    {/* Error Message */}
-                    {uploadMutation.isError && (
-                        <Alert variant="destructive" className="mt-4">
-                            <AlertCircle className="h-4 w-4" />
-                            <AlertDescription>
-                                {uploadMutation.error instanceof Error
-                                    ? uploadMutation.error.message
-                                    : 'Failed to upload image. Please try again.'}
-                            </AlertDescription>
-                        </Alert>
-                    )}
                 </div>
+
+                {/* Custom Name Input */}
+                {selectedFile && (
+                    <div className="mt-4 space-y-2">
+                        <label className="text-sm font-medium">Custom Name (Optional)</label>
+                        <Input
+                            type="text"
+                            value={customName}
+                            onChange={(e) => setCustomName(e.target.value)}
+                            placeholder="Enter custom name..."
+                            disabled={isUploading}
+                        />
+                    </div>
+                )}
+
+                {/* Upload Button */}
+                {selectedFile && (
+                    <Button
+                        onClick={handleUpload}
+                        className="w-full mt-4"
+                        disabled={isUploading}
+                    >
+                        {isUploading ? (
+                            <>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2" />
+                                Uploading...
+                            </>
+                        ) : (
+                            <>
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload Image
+                            </>
+                        )}
+                    </Button>
+                )}
+
+                {/* Validation Error Message */}
+                {validationError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                            {validationError}
+                        </AlertDescription>
+                    </Alert>
+                )}
+
+                {/* Upload Error Message */}
+                {uploadMutation.isError && (
+                    <Alert variant="destructive" className="mt-4">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                            {uploadMutation.error instanceof Error
+                                ? uploadMutation.error.message
+                                : 'Failed to upload image. Please try again.'}
+                        </AlertDescription>
+                    </Alert>
+                )}
             </DialogContent>
         </Dialog>
     )

@@ -19,6 +19,7 @@ export default function UploadPage() {
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [customName, setCustomName] = useState('')
     const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null)
+    const [validationError, setValidationError] = useState<string | null>(null)
     const uploadMutation = useUploadImage()
 
     // Cleanup preview URL on unmount
@@ -52,10 +53,35 @@ export default function UploadPage() {
     }, [selectedFile])
 
     const handleFileSelect = (file: File) => {
+        // Clear any previous validation errors
+        setValidationError(null)
+
+        // Validate file type
         if (!file.type.startsWith('image/')) {
-            alert('Please select an image file')
+            setValidationError('Please select an image file.')
             return
         }
+
+        // Validate file size (max 10MB)
+        const maxSize = 5 * 1024 * 1024 // 10MB
+        if (file.size > maxSize) {
+            setValidationError('File size must be less than 5MB.')
+            return
+        }
+
+        // Validate specific image formats
+        const allowedTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/svg+xml'
+        ]
+
+        if (!allowedTypes.includes(file.type)) {
+            setValidationError('Unsupported file format. Please use JPEG, JPG, PNG, or SVG.')
+            return
+        }
+
         setSelectedFile(file)
         setCustomName(file.name.replace(/\.[^/.]+$/, '')) // Remove extension
         setDimensions(null) // Reset dimensions
@@ -143,11 +169,13 @@ export default function UploadPage() {
                             <div className="space-y-4 w-full">
                                 {/* Image Preview */}
                                 <div className="relative w-full max-w-xs mx-auto">
-                                    <img
-                                        src={previewUrl || ''}
-                                        alt="Preview"
-                                        className="w-full h-48 object-cover rounded-lg border"
-                                    />
+                                    {previewUrl && (
+                                        <img
+                                            src={previewUrl}
+                                            alt="Preview"
+                                            className="w-full h-48 object-cover rounded-lg border"
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Badges */}
@@ -187,8 +215,21 @@ export default function UploadPage() {
                                                 fileInputRef.current?.click()
                                             }}
                                         >
-                                            upload a file
+                                            Upload a File
                                         </Button>
+
+                                        {/* Upload Constraints */}
+                                        <div className="mt-3 flex flex-wrap gap-2 justify-center">
+                                            <Badge variant="outline" className="text-xs">
+                                                Max 5MB
+                                            </Badge>
+                                            <Badge variant="outline" className="text-xs">
+                                                JPEG, JPG, PNG, SVG
+                                            </Badge>
+                                            <Badge variant="outline" className="text-xs">
+                                                Images only
+                                            </Badge>
+                                        </div>
                                     </div>
                                 )}
                             </div>
@@ -230,7 +271,17 @@ export default function UploadPage() {
                         </Button>
                     )}
 
-                    {/* Error Message */}
+                    {/* Validation Error Message */}
+                    {validationError && (
+                        <Alert variant="destructive" className="mt-4">
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertDescription>
+                                {validationError}
+                            </AlertDescription>
+                        </Alert>
+                    )}
+
+                    {/* Upload Error Message */}
                     {uploadMutation.isError && (
                         <Alert variant="destructive" className="mt-4">
                             <AlertCircle className="h-4 w-4" />

@@ -112,6 +112,30 @@ export async function POST(request: NextRequest) {
             )
         }
 
+        // Validate file size (max 5MB)
+        const maxSize = 5 * 1024 * 1024 // 5MB
+        if (file.size > maxSize) {
+            return NextResponse.json(
+                { error: 'File size must be less than 5MB' },
+                { status: 400 }
+            )
+        }
+
+        // Validate specific image formats
+        const allowedTypes = [
+            'image/jpeg',
+            'image/jpg',
+            'image/png',
+            'image/svg+xml'
+        ]
+
+        if (!allowedTypes.includes(file.type)) {
+            return NextResponse.json(
+                { error: `Unsupported image format: ${file.type}. Allowed formats: JPEG, JPG, PNG, SVG` },
+                { status: 400 }
+            )
+        }
+
         // Validate optional fields
         const validatedData = UploadSchema.parse({
             name: name || undefined,

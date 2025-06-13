@@ -1,38 +1,34 @@
-import { useMemo } from 'react'
-import { useFetchLatestImages, useFetchImages, type ImagesResponse } from '@/lib/api'
+import { useFetchImages, type ImagesResponse } from '@/lib/api'
 import useDebounce from './useDebounce'
 
 export function useOptimizedSearch(searchTerm: string) {
-    // Get latest images from cache (instant feedback)
-    const latestImagesQuery = useFetchLatestImages(50)
-
-    // Client-side filter for instant results
-    const clientFiltered = useMemo(() => {
-        if (!searchTerm || !latestImagesQuery.data) return latestImagesQuery.data
-
-        const filtered = latestImagesQuery.data.images.filter(image =>
-            image.name.toLowerCase().includes(searchTerm.toLowerCase())
-        )
-
-        return {
-            ...latestImagesQuery.data,
-            images: filtered,
-            total: filtered.length,
-            search: searchTerm
-        }
-    }, [searchTerm, latestImagesQuery.data])
-
-    // Debounced server search (300ms delay)
+    // Debounce search term to avoid excessive API calls
     const debouncedSearch = useDebounce(searchTerm, 300)
-    const serverSearchQuery = useFetchImages(debouncedSearch, 50, {
-        enabled: !!debouncedSearch && debouncedSearch.length >= 2
+
+    // Use React Query's built-in features for smooth UX
+    const query = useFetchImages(debouncedSearch, 50, {
+        keepPreviousData: true,  // Show previous results while loading new ones
+        staleTime: 5 * 60 * 1000, // 5 minutes - good for demo with mostly static images
+        placeholderData: (previousData: ImagesResponse | undefined) => {
+            // If we have previous data and we're searching, filter it client-side for instant feedback
+            if (previousData && searchTerm && !debouncedSearch) {
+                const filtered = previousData.images.filter(image =>
+                    image.name.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                return {
+                    ...previousData,
+                    images: filtered,
+                    total: filtered.length
+                }
+            }
+            return previousData
+        }
     })
 
-    // Return server results if available, otherwise client-filtered
     return {
-        data: (serverSearchQuery.data || clientFiltered) as ImagesResponse | undefined,
-        isLoading: latestImagesQuery.isLoading,
-        isSearching: serverSearchQuery.isFetching,
-        error: serverSearchQuery.error || latestImagesQuery.error
+        data: query.data as ImagesResponse | undefined,
+        isLoading: query.isLoading,
+        isSearching: query.isFetching && !!debouncedSearch,
+        error: query.error
     }
 }

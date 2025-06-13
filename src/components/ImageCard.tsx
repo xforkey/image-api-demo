@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, memo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -10,12 +10,12 @@ import type { ImageMetadata } from '@/lib/api'
 interface ImageCardProps {
     image: ImageMetadata
     onDelete?: (id: string) => void
+    priority?: boolean
 }
 
-export default function ImageCard({ image, onDelete }: ImageCardProps) {
+function ImageCard({ image, onDelete, priority = false }: ImageCardProps) {
     const [isLoaded, setIsLoaded] = useState(false)
     const [isInView, setIsInView] = useState(false)
-    const [isHovered, setIsHovered] = useState(false)
     const imgRef = useRef<HTMLDivElement>(null)
 
     // Lazy-load via Intersection Observer
@@ -32,36 +32,30 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
         <div
             ref={imgRef}
             className="relative aspect-square bg-muted overflow-hidden rounded-lg group cursor-pointer"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
         >
-            {isInView && (
+            {(isInView || priority) && (
                 <Image
                     src={`/api/v1/images/${image.id}/file`}
                     alt={image.name}
                     fill
                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    priority={priority}
                     unoptimized // since it's a dynamic endpoint
+                    placeholder="blur"
+                    blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAhEAACAQMDBQAAAAAAAAAAAAABAgMABAUGIWGRkqGx0f/EABUBAQEAAAAAAAAAAAAAAAAAAAMF/8QAGhEAAgIDAAAAAAAAAAAAAAAAAAECEgMRkf/aAAwDAQACEQMRAD8AltJagyeH0AthI5xdrLcNM91BF5pX2HaH9bcfaSXWGaRmknyJckliyjqTzSlT54b6bk+h0R//2Q=="
                     onLoadingComplete={() => setIsLoaded(true)}
-                    className={cn(
-                        'object-cover transition-all duration-300',
-                        isLoaded ? 'opacity-100' : 'opacity-0',
-                        'group-hover:scale-105'
-                    )}
+                    className="will-change-transform will-change-opacity object-cover transition-transform duration-300 group-hover:scale-105"
                 />
             )}
 
-            {!isLoaded && isInView && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="animate-pulse bg-muted-foreground/20 w-8 h-8 rounded" />
+            {!isLoaded && (isInView || priority) && (
+                <div className="absolute inset-0 bg-muted animate-pulse">
+                    <div className="absolute inset-0 bg-gradient-to-br from-muted-foreground/10 to-muted-foreground/5" />
                 </div>
             )}
 
             {/* Hover overlay */}
-            <div className={cn(
-                'absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 transition-all duration-300',
-                isHovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'
-            )}>
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 transition-transform duration-300 opacity-0 translate-y-2 group-hover:opacity-100 group-hover:translate-y-0">
                 <div className="flex items-center justify-between text-white">
                     <h3 className="font-medium text-sm truncate flex-1 mr-2" title={image.name}>
                         {image.name}
@@ -70,7 +64,7 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
                         <Button
                             size="icon"
                             onClick={e => { e.stopPropagation(); onDelete(image.id) }}
-                            className="hover:text-white hover:bg-red-600 transition-colors"
+                            className="hover:text-white hover:bg-red-600 transition-colors duration-200"
                         >
                             <Trash2 />
                         </Button>
@@ -80,3 +74,5 @@ export default function ImageCard({ image, onDelete }: ImageCardProps) {
         </div>
     )
 }
+
+export default memo(ImageCard)

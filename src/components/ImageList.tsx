@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useOptimizedSearch } from '@/hooks/useOptimizedSearch'
 import { useDeleteImage, type ImageMetadata } from '@/lib/api'
 import { Badge } from '@/components/ui/badge'
@@ -27,10 +27,10 @@ export default function ImageList({ searchQuery }: ImageListProps) {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
     const [imageToDelete, setImageToDelete] = useState<string | null>(null)
 
-    const handleDeleteClick = (id: string) => {
+    const handleDeleteClick = useCallback((id: string) => {
         setImageToDelete(id)
         setDeleteDialogOpen(true)
-    }
+    }, [])
 
     const handleDeleteConfirm = async () => {
         if (!imageToDelete) return
@@ -65,28 +65,29 @@ export default function ImageList({ searchQuery }: ImageListProps) {
     return (
         <div>
             <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-semibold">Image Gallery</h2>
+                <Badge variant="secondary" className="text-sm">
+                    {data?.total || 0} images
+                </Badge>
                 <div className="flex items-center gap-2">
                     {isSearching && (
                         <div className="text-sm text-muted-foreground">Searching...</div>
                     )}
-                    <Badge variant="secondary" className="text-sm">
-                        {data?.total || 0} images
-                    </Badge>
+
                 </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {data?.images.map((image: ImageMetadata) => (
+                {data?.images?.map((image: ImageMetadata, index: number) => (
                     <ImageCard
                         key={image.id}
                         image={image}
                         onDelete={handleDeleteClick}
+                        priority={index < 4} // Preload first 4 images
                     />
                 ))}
             </div>
 
-            {data?.images.length === 0 && (
+            {(data?.images?.length === 0) && (
                 <div className="text-center py-12">
                     <p className="text-muted-foreground">
                         {searchQuery ? 'No images found matching your search' : 'No images found'}
