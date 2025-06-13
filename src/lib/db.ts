@@ -2,18 +2,11 @@ import { Low } from 'lowdb'
 import { JSONFile } from 'lowdb/node'
 import path from 'path'
 
-// Define the structure of our image metadata
+// Define the structure of our image metadata (minimal)
 export interface ImageMetadata {
     id: string
     filename: string
-    originalName: string
-    name?: string
-    description?: string
-    width: number
-    height: number
-    size: number
-    mimeType: string
-    uploadedAt: string
+    name: string
 }
 
 // Define the database schema
