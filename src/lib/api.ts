@@ -5,6 +5,9 @@ export interface ImageMetadata {
     id: string
     filename: string
     name: string
+    uploadedAt?: string
+    width?: number
+    height?: number
 }
 
 export interface ImagesResponse {
@@ -16,6 +19,8 @@ export interface ImagesResponse {
 export interface UploadImageData {
     file: File
     name?: string
+    width?: number
+    height?: number
 }
 
 export interface UpdateImageData {
@@ -25,8 +30,14 @@ export interface UpdateImageData {
 // API functions
 const API_BASE = '/api/v1/images'
 
-async function fetchImages(search?: string): Promise<ImagesResponse> {
-    const url = search ? `${API_BASE}?search=${encodeURIComponent(search)}` : API_BASE
+async function fetchImages(search?: string, limit = 50): Promise<ImagesResponse> {
+    const params = new URLSearchParams()
+    if (search) params.set('search', search)
+    params.set('sort', 'uploadedAt')
+    params.set('order', 'desc')
+    params.set('limit', limit.toString())
+
+    const url = `${API_BASE}?${params.toString()}`
     const response = await fetch(url)
 
     if (!response.ok) {
@@ -51,6 +62,12 @@ async function uploadImage(data: UploadImageData): Promise<ImageMetadata> {
     formData.append('file', data.file)
     if (data.name) {
         formData.append('name', data.name)
+    }
+    if (data.width) {
+        formData.append('width', data.width.toString())
+    }
+    if (data.height) {
+        formData.append('height', data.height.toString())
     }
 
     const response = await fetch(API_BASE, {
@@ -95,11 +112,22 @@ async function deleteImage(id: string): Promise<void> {
 }
 
 // React Query hooks
-export function useFetchImages(search?: string) {
+export function useFetchImages(search?: string, limit = 50, options?: any) {
     return useQuery({
-        queryKey: ['images', search],
-        queryFn: () => fetchImages(search),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        queryKey: ['images', search || 'latest', limit],
+        queryFn: () => fetchImages(search, limit),
+        staleTime: 1 * 60 * 1000, // 1 minute
+        refetchOnWindowFocus: true,
+        ...options
+    })
+}
+
+export function useFetchLatestImages(limit = 50) {
+    return useQuery({
+        queryKey: ['images', 'latest', limit],
+        queryFn: () => fetchImages(undefined, limit),
+        staleTime: 1 * 60 * 1000,
+        refetchOnWindowFocus: true,
     })
 }
 
@@ -116,8 +144,18 @@ export function useUploadImage() {
 
     return useMutation({
         mutationFn: uploadImage,
-        onSuccess: () => {
-            // Invalidate and refetch images list
+        onSuccess: (newImage) => {
+            // Optimistic update - add new image to top of latest images
+            queryClient.setQueryData(['images', 'latest', 50], (old: ImagesResponse | undefined) => {
+                if (!old) return { images: [newImage], total: 1, search: null }
+                return {
+                    ...old,
+                    images: [newImage, ...old.images].slice(0, 50),
+                    total: old.total + 1
+                }
+            })
+
+            // Also invalidate to ensure fresh data
             queryClient.invalidateQueries({ queryKey: ['images'] })
         },
     })

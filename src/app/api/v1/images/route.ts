@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
+import type { ImageMetadata } from '@/lib/api'
 
 // Validation schemas
 const SearchParamsSchema = z.object({
-    search: z.string().optional()
+    search: z.string().optional(),
+    sort: z.enum(['uploadedAt', 'name']).default('uploadedAt'),
+    order: z.enum(['asc', 'desc']).default('desc'),
+    limit: z.coerce.number().min(1).max(100).default(50)
 })
 
 const UploadSchema = z.object({
-    name: z.string().optional()
+    name: z.string().optional(),
+    width: z.coerce.number().positive().optional(),
+    height: z.coerce.number().positive().optional()
 })
 
 /**
@@ -19,7 +25,10 @@ export async function GET(request: NextRequest) {
         // Parse and validate search parameters
         const { searchParams } = new URL(request.url)
         const params = SearchParamsSchema.parse({
-            search: searchParams.get('search') || undefined
+            search: searchParams.get('search') || undefined,
+            sort: searchParams.get('sort') || 'uploadedAt',
+            order: searchParams.get('order') || 'desc',
+            limit: searchParams.get('limit') || '50'
         })
 
         // Get database instance
@@ -36,6 +45,23 @@ export async function GET(request: NextRequest) {
                 image.name.toLowerCase().includes(searchTerm)
             )
         }
+
+        // Apply sorting (newest first by default)
+        if (params.sort === 'uploadedAt') {
+            images = images.sort((a: ImageMetadata, b: ImageMetadata) => {
+                const aTime = new Date(a.uploadedAt || 0).getTime()
+                const bTime = new Date(b.uploadedAt || 0).getTime()
+                return params.order === 'desc' ? bTime - aTime : aTime - bTime
+            })
+        } else if (params.sort === 'name') {
+            images = images.sort((a: ImageMetadata, b: ImageMetadata) => {
+                const comparison = a.name.localeCompare(b.name)
+                return params.order === 'desc' ? -comparison : comparison
+            })
+        }
+
+        // Apply limit
+        images = images.slice(0, params.limit)
 
         return NextResponse.json({
             images,
@@ -68,6 +94,8 @@ export async function POST(request: NextRequest) {
         const formData = await request.formData()
         const file = formData.get('file') as File | null
         const name = formData.get('name') as string | null
+        const width = formData.get('width') as string | null
+        const height = formData.get('height') as string | null
 
         if (!file) {
             return NextResponse.json(
@@ -86,7 +114,9 @@ export async function POST(request: NextRequest) {
 
         // Validate optional fields
         const validatedData = UploadSchema.parse({
-            name: name || undefined
+            name: name || undefined,
+            width: width || undefined,
+            height: height || undefined
         })
 
         // Save file to storage
@@ -97,7 +127,10 @@ export async function POST(request: NextRequest) {
         const imageMetadata = {
             id,
             filename,
-            name: validatedData.name || file.name || filename
+            name: validatedData.name || file.name || filename,
+            uploadedAt: new Date().toISOString(),
+            ...(validatedData.width && { width: validatedData.width }),
+            ...(validatedData.height && { height: validatedData.height })
         }
 
         // Save to database

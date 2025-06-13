@@ -20,6 +20,7 @@ export default function UploadModal() {
     const [selectedFile, setSelectedFile] = useState<File | null>(null)
     const [previewUrl, setPreviewUrl] = useState<string | null>(null)
     const [customName, setCustomName] = useState('')
+    const [dimensions, setDimensions] = useState<{ width: number; height: number } | null>(null)
     const uploadMutation = useUploadImage()
 
     // Cleanup preview URL on unmount
@@ -31,6 +32,27 @@ export default function UploadModal() {
         }
     }, [previewUrl])
 
+    // Extract dimensions when file is selected
+    useEffect(() => {
+        if (!selectedFile) return
+
+        // Create preview URL
+        const url = URL.createObjectURL(selectedFile)
+        setPreviewUrl(url)
+
+        // Extract dimensions using Image API
+        const img = new Image()
+        img.src = url
+        img.onload = () => {
+            setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+        }
+
+        // Cleanup
+        return () => {
+            img.src = ''
+        }
+    }, [selectedFile])
+
     const handleFileSelect = (file: File) => {
         if (!file.type.startsWith('image/')) {
             alert('Please select an image file')
@@ -38,10 +60,7 @@ export default function UploadModal() {
         }
         setSelectedFile(file)
         setCustomName(file.name.replace(/\.[^/.]+$/, '')) // Remove extension
-
-        // Create preview URL
-        const url = URL.createObjectURL(file)
-        setPreviewUrl(url)
+        setDimensions(null) // Reset dimensions
     }
 
     const handleDrop = (e: React.DragEvent) => {
@@ -75,12 +94,16 @@ export default function UploadModal() {
         if (!selectedFile) return
 
         try {
-            await uploadMutation.mutateAsync({
+            const uploadData = {
                 file: selectedFile,
-                name: customName || selectedFile.name
-            })
+                name: customName || selectedFile.name,
+                ...(dimensions && {
+                    width: dimensions.width,
+                    height: dimensions.height
+                })
+            }
 
-            // Close modal and return to gallery
+            await uploadMutation.mutateAsync(uploadData)
             router.back()
         } catch (error) {
             console.error('Upload failed:', error)
@@ -148,6 +171,11 @@ export default function UploadModal() {
                                     <Badge variant="outline" className="text-xs">
                                         {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                                     </Badge>
+                                    {dimensions && (
+                                        <Badge variant="outline" className="text-xs">
+                                            {dimensions.width} × {dimensions.height}
+                                        </Badge>
+                                    )}
                                 </div>
                             </div>
                         ) : (
