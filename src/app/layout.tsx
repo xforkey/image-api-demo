@@ -21,8 +21,10 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({
   children,
+  modal,
 }: Readonly<{
   children: React.ReactNode;
+  modal: React.ReactNode;
 }>) {
   // Prefetch images data on the server
   let initialImagesData;
@@ -40,6 +42,7 @@ export default async function RootLayout({
       >
         <Providers initialImagesData={initialImagesData}>
           {children}
+          {modal}
         </Providers>
       </body>
     </html>
