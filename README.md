@@ -17,10 +17,10 @@ An image gallery API built using Next/Shadcn. Supports uploading, searching and 
    ```bash
    npm install
    ```
-3. **Start the development server**
+3. **Start the server**
 
    ```bash
-   npm run dev
+   npm start
    ```
 4. **Open** [http://localhost:3000](http://localhost:3000) in your browser.
 
