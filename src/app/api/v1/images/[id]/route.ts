@@ -8,7 +8,7 @@ const UpdateImageSchema = z.object({
 })
 
 const ParamsSchema = z.object({
-    id: z.string().uuid('Invalid image ID format')
+    id: z.string().min(1, 'Image ID is required')
 })
 
 /**
@@ -28,12 +28,31 @@ export async function PUT(
         const body = await request.json()
         const validatedData = UpdateImageSchema.parse(body)
 
-        // TODO: Implement image metadata update
-        return NextResponse.json({
-            message: 'PUT /api/v1/images/:id - not implemented yet',
-            id: validatedParams.id,
-            data: validatedData
-        })
+        // Get database instance
+        const { getDb } = await import('@/lib/db')
+        const db = await getDb()
+
+        // Find the image to update
+        const imageIndex = db.data.images.findIndex(img => img.id === validatedParams.id)
+
+        if (imageIndex === -1) {
+            return NextResponse.json(
+                { error: 'Image not found' },
+                { status: 404 }
+            )
+        }
+
+        // Update the image metadata
+        const currentImage = db.data.images[imageIndex]
+        const updatedImage = {
+            ...currentImage,
+            ...(validatedData.name && { name: validatedData.name })
+        }
+
+        db.data.images[imageIndex] = updatedImage
+        await db.write()
+
+        return NextResponse.json(updatedImage)
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json(
@@ -63,9 +82,32 @@ export async function DELETE(
         const resolvedParams = await params
         const validatedParams = ParamsSchema.parse(resolvedParams)
 
-        // TODO: Implement image deletion
+        // Get database instance
+        const { getDb } = await import('@/lib/db')
+        const db = await getDb()
+
+        // Find the image to delete
+        const imageIndex = db.data.images.findIndex(img => img.id === validatedParams.id)
+
+        if (imageIndex === -1) {
+            return NextResponse.json(
+                { error: 'Image not found' },
+                { status: 404 }
+            )
+        }
+
+        const imageToDelete = db.data.images[imageIndex]
+
+        // Delete file from storage
+        const { deleteFile } = await import('@/lib/storage')
+        await deleteFile(imageToDelete.filename)
+
+        // Remove from database
+        db.data.images.splice(imageIndex, 1)
+        await db.write()
+
         return NextResponse.json({
-            message: 'DELETE /api/v1/images/:id - not implemented yet',
+            message: 'Image deleted successfully',
             id: validatedParams.id
         })
     } catch (error) {
@@ -97,11 +139,21 @@ export async function GET(
         const resolvedParams = await params
         const validatedParams = ParamsSchema.parse(resolvedParams)
 
-        // TODO: Implement single image retrieval
-        return NextResponse.json({
-            message: 'GET /api/v1/images/:id - not implemented yet',
-            id: validatedParams.id
-        })
+        // Get database instance
+        const { getDb } = await import('@/lib/db')
+        const db = await getDb()
+
+        // Find the image
+        const image = db.data.images.find(img => img.id === validatedParams.id)
+
+        if (!image) {
+            return NextResponse.json(
+                { error: 'Image not found' },
+                { status: 404 }
+            )
+        }
+
+        return NextResponse.json(image)
     } catch (error) {
         if (error instanceof z.ZodError) {
             return NextResponse.json(
